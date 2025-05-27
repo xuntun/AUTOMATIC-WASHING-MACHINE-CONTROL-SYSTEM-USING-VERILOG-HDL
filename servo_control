@@ -1,0 +1,46 @@
+module servo_control(
+    input clk,
+	 input rst,
+	 input [2:0] state,	     	      
+    output pwm_out    );
+
+reg [19:0] counter;      
+reg [19:0] pwm_width_reg;
+
+parameter [2:0] check_door    = 3'b000;
+parameter [2:0] fill_water    = 3'b001;
+parameter [2:0] done          = 3'b111;
+
+parameter PWM_PERIOD = 1_000_000;  
+parameter OPEN_PWM_WIDTH = 100_000; 
+parameter CLOSE_PWM_WIDTH = 30_000; 
+
+
+always @(posedge clk, posedge rst) begin
+        if (rst) begin
+            pwm_width_reg <= CLOSE_PWM_WIDTH; // default on reset
+        end else begin
+            case (state)
+                check_door: pwm_width_reg <= OPEN_PWM_WIDTH;
+                fill_water: pwm_width_reg <= CLOSE_PWM_WIDTH;
+                done:       pwm_width_reg <= OPEN_PWM_WIDTH;
+                default:    pwm_width_reg <= CLOSE_PWM_WIDTH;
+            endcase
+        end
+end
+
+
+always @(posedge clk, posedge rst) begin
+
+    if (rst) begin
+        counter <= 0;
+    end else
+        if (counter < PWM_PERIOD - 1)
+            counter <= counter + 1;
+        else counter <= 0;  
+
+end
+
+assign pwm_out = (counter < pwm_width_reg) ? 1'b1 : 1'b0;
+
+endmodule
