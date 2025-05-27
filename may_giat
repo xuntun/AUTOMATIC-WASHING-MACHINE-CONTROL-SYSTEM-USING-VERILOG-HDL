@@ -1,0 +1,150 @@
+module May_giat
+(
+input clk, reset, start, door_close, filled, detergent_added, drained,
+output door_lock, fill_valve_on, drain_valve_on, motor_on, done,
+
+output [2:0] debug_current_state,
+output [3:0] debug_timer,
+output debug_soap_flag, debug_water_flag
+);
+
+parameter check_door    = 3'b000;
+parameter fill_water    = 3'b001;
+parameter add_detergent = 3'b010;
+parameter soap_wash     = 3'b011;
+parameter drain_water   = 3'b100;
+parameter water_wash    = 3'b101;
+parameter spin          = 3'b110;
+parameter finish			= 3'b111;
+
+
+reg [2:0] current_state=3'b000, next_state=3'b000;
+reg soap_flag=1'b0, water_flag=1'b0;
+reg [3:0] timer=0;
+
+
+always@(posedge clk, posedge reset)
+	begin
+		if(reset)
+		begin
+			current_state <= check_door;
+				
+			soap_flag 	<= 1'b0;
+			water_flag 	<= 1'b0;
+				
+			timer <= 0;
+		end
+			
+		else	
+		begin
+				current_state <= next_state;
+			if (next_state == soap_wash)			soap_flag <= 1;
+			else if(next_state == water_wash)	water_flag <= 1;
+			
+			if(current_state != next_state)
+			begin
+				case (next_state)
+					soap_wash: 	timer <= 7;
+					water_wash: timer <= 7;
+					spin: 		timer <= 15;
+					finish: 		timer <= 5;
+				endcase
+			end
+
+
+			else if( (current_state==soap_wash || current_state==water_wash ||
+					    current_state==spin      || current_state==finish) && timer > 0 )
+						 begin timer <= timer - 1; end
+					  		
+		end	
+	end
+		
+		always @(*)
+	begin
+	case(current_state)
+		check_door:
+		begin			
+			if(start==1 && door_close==1)
+			begin
+				next_state = fill_water;
+			end
+				
+			else
+			begin
+				next_state = current_state;
+			end
+		end	
+				
+		fill_water:
+		begin
+			if(filled==1 && soap_flag==0 && water_flag==0)	next_state = add_detergent;
+				
+			else
+			if(filled==1 && soap_flag==1 && water_flag==0)	next_state = water_wash;
+			else next_state = current_state;
+		end		
+				
+				
+		add_detergent:
+		begin
+			if(detergent_added==1)	next_state = soap_wash;
+			else next_state = current_state;
+		end
+				
+		soap_wash:
+		begin
+			if(timer==0)	next_state = drain_water;
+			else next_state = current_state;
+		end
+				
+				
+		drain_water:
+		begin
+			if(drained==1 && soap_flag==1 && water_flag==0)		next_state = fill_water;
+				
+			else
+			if(drained==1 && soap_flag==1 && water_flag==1) next_state = spin;
+			else next_state = current_state;
+		end
+			
+					water_wash:
+		begin
+			if(timer==0)	next_state = drain_water;
+			else next_state = current_state;
+		end
+			
+				
+		spin:
+		begin
+			if(timer==0) next_state = finish;
+			else next_state = current_state;
+		end
+			
+		finish:
+		begin
+			if(timer==0) next_state = check_door;
+			else next_state = current_state;
+		end
+			
+		default:next_state = check_door;
+					
+	endcase
+	end
+		
+assign door_lock = (current_state == fill_water) || (current_state == add_detergent)
+						|| (current_state == soap_wash) || (current_state == drain_water)
+						|| (current_state == water_wash) || (current_state == spin);
+
+assign fill_valve_on = (current_state == fill_water);
+assign drain_valve_on = (current_state == drain_water);
+
+assign motor_on = (current_state == soap_wash) || (current_state == water_wash) 
+							|| (current_state == spin);
+assign done = (current_state == finish);
+//debug
+assign debug_current_state = current_state;
+assign debug_soap_flag	   = soap_flag;
+assign debug_water_flag	   = water_flag;
+assign debug_timer			= timer;
+endmodule		
+		
