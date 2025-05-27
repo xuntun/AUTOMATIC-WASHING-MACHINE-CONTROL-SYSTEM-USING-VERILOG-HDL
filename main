@@ -1,0 +1,31 @@
+module Main(
+input clk, reset, start, door_close, filled, detergent_added, drained,
+output door_lock, fill_valve_on, drain_valve_on, motor_on, done,
+
+output [2:0] debug_current_state,
+output [3:0] debug_timer,
+output debug_soap_flag, debug_water_flag,
+output clk_out,	
+
+output enable_pwm, 
+output pwm_out,
+output IN3	
+);
+
+wire clk_1hz;
+
+Chiaxung_1hz	IC1(.clk(clk), .q(clk_1hz));
+
+May_giat		IC2(clk_1hz, reset, start, door_close, filled, detergent_added, drained,
+					door_lock, fill_valve_on, drain_valve_on, motor_on, done,
+					debug_current_state, debug_timer, debug_soap_flag, 
+					debug_water_flag);
+					
+
+Motor_controller IC3(.clk(clk), .state(debug_current_state), .enable_pwm(enable_pwm), .IN3(IN3));
+
+servo_control IC4(.clk(clk), .rst(rst), .state(debug_current_state), .pwm_out(pwm_out) );
+
+assign clk_out = clk_1hz;
+
+endmodule
